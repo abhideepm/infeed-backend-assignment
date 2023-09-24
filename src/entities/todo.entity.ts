@@ -15,7 +15,7 @@ export enum TodoStatus {
   DONE = 'DONE',
 }
 
-@Entity({ customRepository: () => TodoRepository })
+@Entity({ customRepository: () => TodoRepository, tableName: 'Todo' })
 export class Todo extends BaseEntity {
   @PrimaryKey({
     type: 'uuid',
@@ -25,6 +25,9 @@ export class Todo extends BaseEntity {
 
   @Property({ type: 'text' })
   title!: string;
+
+  @Property({ type: 'text', nullable: true })
+  description?: string;
 
   @Enum({
     items: () => TodoStatus,

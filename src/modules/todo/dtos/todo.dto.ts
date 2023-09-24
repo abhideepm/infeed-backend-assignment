@@ -1,4 +1,5 @@
-import { Type } from 'class-transformer';
+import { BadRequestException } from '@nestjs/common';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDate,
   IsEnum,
@@ -7,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  ValidateBy,
 } from 'class-validator';
 import { TodoStatus } from 'src/entities/todo.entity';
 
@@ -14,6 +16,14 @@ export class CreateTodoDto {
   @IsString()
   @IsNotEmpty()
   title!: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsEnum(TodoStatus)
+  @IsOptional()
+  status?: TodoStatus;
 }
 
 export class DeleteTodoDto {
@@ -52,16 +62,39 @@ export class UpdateTodoDto {
   @IsOptional()
   @IsString()
   title?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
 
 export class GetTodoMetricsParamsDto {
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  startDate?: Date;
+  @IsNotEmpty()
+  @Transform(({ value }: { value: string }) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+    return value.split('/').map((v) => +v);
+  })
+  @IsNumber({ allowNaN: false }, { each: true })
+  @ValidateBy({
+    validator: (value: number[]) => {
+      if (value.length !== 2) {
+        throw new BadRequestException('Invalid query params');
+      }
+      const [month, year] = value;
 
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  endDate?: Date;
+      if (month < 1 || month > 12) {
+        throw new BadRequestException('Invalid month');
+      }
+
+      if (year < 1) {
+        throw new BadRequestException('Invalid year');
+      }
+
+      return true;
+    },
+    name: 'monthYear',
+  })
+  monthYear!: number[];
 }

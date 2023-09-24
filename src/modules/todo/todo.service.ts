@@ -1,3 +1,4 @@
+import { EntityManager } from '@mikro-orm/knex';
 import { Injectable } from '@nestjs/common';
 import { TodoStatus } from 'src/entities/todo.entity';
 import { TodoRepository } from 'src/repositories/todo.repository';
@@ -5,15 +6,23 @@ import { UpdateTodoDto } from './dtos/todo.dto';
 
 @Injectable()
 export class TodoService {
-  constructor(private readonly todoRepository: TodoRepository) {}
+  constructor(
+    private readonly todoRepository: TodoRepository,
+    private readonly em: EntityManager,
+  ) {}
 
-  async createTodo(title: string) {
+  async createTodo(
+    title: string,
+    description?: string,
+    status = TodoStatus.OPEN,
+  ) {
     const todo = this.todoRepository.create({
       title,
-      status: TodoStatus.IN_PROGRESS,
+      description,
+      status,
     });
 
-    await this.todoRepository.nativeInsert(todo);
+    await this.todoRepository.persistAndFlush(todo);
   }
 
   async getTodos(nextTodoId?: string, nextDateCreated?: Date, limit = 10) {
@@ -24,7 +33,7 @@ export class TodoService {
               $or: [
                 {
                   createdAt: {
-                    $gt: nextDateCreated,
+                    $lte: nextDateCreated,
                   },
                 },
                 {
@@ -32,7 +41,7 @@ export class TodoService {
                     $eq: nextDateCreated,
                   },
                   id: {
-                    $gt: nextTodoId,
+                    $lte: nextTodoId,
                   },
                 },
               ],
@@ -45,16 +54,16 @@ export class TodoService {
           createdAt: 'DESC',
           id: 'DESC',
         },
-        limit,
-        fields: ['id', 'status', 'title'],
+        limit: limit + 1,
+        fields: ['id', 'status', 'title', 'description', 'createdAt'],
       },
     );
 
     return {
-      todos,
+      todos: todos.slice(0, limit),
       paginationParams: {
-        nextTodoId: todos.at(-1)?.id,
-        nextDateCreated: todos.at(-1)?.createdAt,
+        nextTodoId: todos.at(limit)?.id ?? null,
+        nextDateCreated: todos.at(limit)?.createdAt ?? null,
       },
     };
   }
@@ -77,18 +86,36 @@ export class TodoService {
     );
   }
 
-  async getTodoMetrics(startDate?: Date, endDate?: Date) {
-    const todos = await this.todoRepository.count(
+  async getTodoMetrics(month: number, year: number) {
+    const startDate = new Date(year, month - 1, 1).toISOString();
+    const endDate = new Date(year, month, 0).toISOString();
+    const todos = await this.em.execute<
       {
-        createdAt: {
-          $gte: startDate,
-          $lte: endDate,
-        },
-      },
-      {
-        groupBy: ['status'],
-      },
+        status: TodoStatus;
+        count: number;
+      }[]
+    >(
+      `
+        SELECT 
+          status, 
+          COUNT(*)::INT AS count
+        FROM "Todo"
+        WHERE "createdAt" BETWEEN ? AND ?
+        GROUP BY status
+      `,
+      [startDate, endDate],
     );
-    console.log('todos', todos);
+
+    return {
+      metrics: todos.reduce(
+        (acc, { status, count }) => ({
+          ...acc,
+          [status]: count,
+        }),
+        {},
+      ),
+      month,
+      year,
+    };
   }
 }

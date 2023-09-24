@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   CreateTodoDto,
@@ -22,8 +23,8 @@ export class TodoController {
   constructor(private readonly todoService: TodoService) {}
 
   @Post()
-  createTodo(@Body() { title }: CreateTodoDto) {
-    return this.todoService.createTodo(title);
+  createTodo(@Body() { title, description, status }: CreateTodoDto) {
+    return this.todoService.createTodo(title, description, status);
   }
 
   @Delete(':todoId')
@@ -40,12 +41,14 @@ export class TodoController {
   }
 
   @Get()
-  getTodos(@Param() { nextDateCreated, nextTodoId, limit }: GetTodosParamsDto) {
+  getTodos(@Query() { nextDateCreated, nextTodoId, limit }: GetTodosParamsDto) {
     return this.todoService.getTodos(nextTodoId, nextDateCreated, limit);
   }
 
   @Get('metrics')
-  getTodoMetrics(@Param() { startDate, endDate }: GetTodoMetricsParamsDto) {
-    return this.todoService.getTodoMetrics(startDate, endDate);
+  getTodoMetrics(
+    @Query() { monthYear: [month, year] }: GetTodoMetricsParamsDto,
+  ) {
+    return this.todoService.getTodoMetrics(month, year);
   }
 }

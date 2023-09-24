@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TodoModule } from './modules/todo/todo.module';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EntityCaseNamingStrategy } from '@mikro-orm/core';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         user: config.get('DB_USER'),
         password: config.get('DB_PASSWORD'),
         type: 'postgresql',
+        namingStrategy: EntityCaseNamingStrategy,
       }),
     }),
   ],
